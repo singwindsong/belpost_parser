@@ -1,0 +1,43 @@
+<?php
+/**
+ * Implements hook_schema().
+ * To create a new table for belpost_parser entity.
+ * @return array
+ */
+function belpost_parser_schema() {
+  $schema['belpost_parser'] = array(
+    'fields' => array(
+      'pid' => array(
+        'description' => 'Parser ID',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'tracking_number' => array(
+        'description' => 'Tracking Number',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'tracking_date' => array(
+        'description' => 'Tracking Date',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'tracking_status' => array(
+        'description' => 'Tracking Status',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('pid'),
+    'description' => 'Belpost Parser data',
+  );
+
+  return $schema;
+}

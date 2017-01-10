@@ -1,0 +1,5 @@
+name = Belpost parser
+description = A parser for belpost tracking system
+core = 7.x
+
+dependecies[] = entity

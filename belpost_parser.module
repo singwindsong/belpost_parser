@@ -1,0 +1,165 @@
+<?php
+
+/**
+ * Implements hook_entity_info().
+ * To create a new entity for belpost_parser.
+ * @return array
+ */
+function belpost_parser_entity_info() {
+  $return['belpost_parser'] = array(
+    'label' => t('Belpost Parser'),
+    'plural label' => t('Belpost Parsers'),
+    'description' => t('Belpost parser entity type.'),
+    'base table' => 'belpost_parser',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'fieldable' => TRUE,
+    'entity keys' => array(
+      'id' => 'pid',
+      'label' => 'tracking_number', //  To use as a label - a field from schema
+    ),
+    // Make use the class' label() and uri() implementation by default.
+    'label callback' => 'entity_class_label',
+    'uri callback' => 'entity_class_uri',
+    'view modes' => array(
+      'full' => array(
+        'label' => t('Belpost Parser view mode'),
+        'custom settings' => FALSE,
+      ),
+    ),
+    'module' => 'belpost_parser',
+  );
+
+  return $return;
+}
+
+/**
+ * Implements hook_menu().
+ * To create a page for development.
+ * @return array
+ */
+function belpost_parser_menu() {
+  $items['belpost_parser_run'] = array(
+    'page callback' => 'belpost_parser_run',
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+/**
+ * A function runs parsing demo data.
+ */
+function belpost_parser_run() {
+  $array_of_items = array(
+    'LW000695890BY', 'LA014932086BY'
+  );
+
+  foreach($array_of_items as $item) {
+    parse_link($item);
+  }
+}
+
+
+/**
+ * A function to parse single tracking number and write data to DB.
+ * @param type $item
+ */
+function parse_link ($item) {
+  $url_to_parse = 'http://webservices.belpost.by/searchRu/' . $item;
+  $html = curl_init_return_response($url_to_parse);
+  $array_of_data = shd_table($html, $item);
+  parse_array_write_to_db($array_of_data);
+}
+
+/**
+ * A function to receive a response from belpost.
+ * @param type $url
+ * @return type
+ */
+function curl_init_return_response($url) {
+  $object = drupal_http_request($url);
+  $response = $object->data;
+  
+  return $response;
+}
+
+/**
+ * A function to use Simple HTML DOM to collect data to array.
+ * @param type $html
+ * @param type $item
+ * @return type
+ */
+function shd_table($html, $item) {
+  $returned_array = array();
+  
+  $content = new simple_html_dom();
+  $content->load($html);
+  
+  $table = $content->find('table[id="GridInfo0"]');
+  $tr = $table[0]->find('tr');
+ 
+  foreach($tr as $index => $tr_value) {
+    if($index != 0) {
+      $returned_array[$index] = array(
+        'item' => $item,
+        'date' => $tr_value->find('td', 0)->plaintext,
+        'status' => $tr_value->find('td', 1)->plaintext,
+      );
+    }
+  }
+  
+  return $returned_array;
+}
+
+
+/**
+ * A function to parse $returned_array and write data to DB.
+ * @param type $array_to_parse
+ * @return string
+ */
+function parse_array_write_to_db ($array_to_parse) {
+  foreach($array_to_parse as $array) {
+    $tracking_number = $array['item'];
+    $tracking_date = $array['date'];
+    $tracking_status = $array['status'];
+    
+    $query = db_select('belpost_parser', 'bp')
+      ->fields('bp', array('tracking_number', 'tracking_date', 'tracking_status'))
+      ->condition('bp.tracking_number', $tracking_number)
+      ->condition('bp.tracking_date', $tracking_date)
+      ->condition('bp.tracking_status', $tracking_status)
+      ->execute()
+      ->fetchAll();
+    
+    if(empty($query)) {
+      $entity_type = 'belpost_parser';
+      $new_entity = entity_create($entity_type, array(
+        'tracking_number' => $tracking_number,
+        'tracking_date' => $tracking_date,
+        'tracking_status' => $tracking_status,
+      ));
+      $new_entity->save();
+      
+      $message = t('New @entity_type entity has been created. Values: @value1, @value2, @value3.', array('@entity_type' => $entity_type, '@value1' => $tracking_number, '@value2' => $tracking_date, '@value3' => $tracking_status));
+      $type = 'status';
+      
+    } else {
+      $message = t('A group of values: @value1, @value2, @value3 already exists.', array('@value1' => $tracking_number, '@value2' => $tracking_date, '@value3' => $tracking_status));
+      $type = 'warning';
+    }
+    
+    drupal_set_message($message, $type, TRUE);
+  }
+  
+  return '';
+}
+
+/**
+ * A customized version of var_dump to improve display of printed data (for development and debug).
+ * @param type $var
+ */
+function vardump($var) {
+  echo '<pre>';
+  var_dump($var);
+  echo '</pre>';
+}
